@@ -17,6 +17,14 @@ static const int START_SIZE = 20;
 static const int ADDITIONAL = 20;
 static const int DELTA      = 10;
 
+enum LIST_ERROR_CODE
+{
+    OK,
+    IS_NOT_EMPTY,
+    IS_EMPTY,
+    IS_NOT_VALID
+};
+
 class List_t
 {
 private:
@@ -60,6 +68,7 @@ public:
         size ( 0 ),
         head ( 0 ),
         tail ( 0 ),
+        sorted (false),
         next_free ( 1 ),
         total_size (START_SIZE)
     {
@@ -83,12 +92,11 @@ public:
         free (prev);
     }
 
-    bool InsertFirst ( elem_t elem_val )
+    LIST_ERROR_CODE InsertFirst ( elem_t elem_val )
     {
         if ( head != 0 && tail != 0 )
         {
-            fprintf (stderr, "Can't do Insert First: List is not empty\n");
-            return false;
+            return IS_NOT_EMPTY;
         }
         head = 1;
         tail = 1;
@@ -96,22 +104,19 @@ public:
         data [head] = elem_val;
         next [head] = prev [head] = 0;
         size++;
-        return true;
+        return OK;
     }
 
-    bool InsertAfter ( long elem_num, elem_t elem_val )
+    LIST_ERROR_CODE InsertAfter ( long elem_num, elem_t elem_val )
     {
         assert ( elem_num > 0 );
         if ( size == 0 )
         {
-            fprintf (stderr, "List is empty! Starting InsertFirst\n");
-            if ( InsertFirst (elem_val) ) return true;
-            else return false;
+            return IS_EMPTY;
         }
         if ( prev [elem_num] == $POISON )
         {
-            fprintf (stderr, "Indicated number is not part of the list\n");
-            return false;
+            return IS_NOT_VALID;
         }
         list_memory_controller ();
         assert (next_free);
@@ -130,48 +135,33 @@ public:
 
         next [elem_num] = next_free;
         next_free       = new_free;
+        return OK;
     }
 
-    bool InsertBefore ( long elem_num, elem_t elem_val )      //Выразить через инсерт после
+    LIST_ERROR_CODE InsertBefore ( long elem_num, elem_t elem_val )
     {
         assert ( elem_num > 0 );
 
         if ( size == 0 )
         {
-            fprintf (stderr, "List is empty! Starting InsertFirst\n");
-            if ( InsertFirst (elem_val) ) return true;
-            else return false;
+            return IS_EMPTY;
         }
         if ( prev [elem_num] == $POISON )
         {
-            fprintf (stderr, "Indicated number is not part of the list\n");
-            return false;
+            return IS_NOT_VALID;
         }
         list_memory_controller ();
+
         assert (next_free);
 
-        size++;
-
-        data [next_free] = elem_val;
-        long new_free    = next [next_free];
-        next [next_free] = elem_num;
-        prev [next_free] = prev [elem_num];
-
-        if ( head == elem_num )
-            head = next_free;
-        else
-            next [ prev [ elem_num ] ] = next_free;  //Change previous element's next field
-
-        prev [elem_num] = next_free;
-        next_free       = new_free;
+        InsertAfter (prev[elem_num], elem_val);
     }
 
-    bool Delete ( long elem_num )
+    LIST_ERROR_CODE Delete ( long elem_num )
     {
         if ( prev [elem_num] == $POISON )
         {
-            fprintf (stderr, "Indicated number is not part of the list\n");  //ЛОГ
-            return false;
+            return IS_NOT_VALID;
         }
         list_memory_controller ();
 
@@ -191,14 +181,13 @@ public:
         next [elem_num] = next_free;
         next_free       = elem_num;
 
-        return true;
+        return OK;
     }
 
     elem_t front ()
     {
         if ( head == 0 )
         {
-            fprintf (stderr, "Your list is empty!\n");
             return $POISON;
         }
         return data [head];
@@ -208,7 +197,6 @@ public:
     {
         if ( tail == 0 )
         {
-            fprintf (stderr, "Your list is empty!\n");
             return $POISON;
         }
         return data [tail];
@@ -288,6 +276,8 @@ public:
 
     long get_index_by_logic (long number)
     {
+        if ( sorted )
+            return number;
         long elem_p = head;
         if (number > size || number == 0) return 0;
         if (number <= size / 2)
@@ -314,8 +304,7 @@ public:
                 list_elem_swap( i, elem_p );
             elem_p = next [i];
         }
-
-
+        sorted = true;
     }
 
     void list_dump ()
@@ -348,9 +337,14 @@ public:
 
     void list_elem_swap (long left, long right)
     {
+        sorted = false;
+        assert (left  > 0);
+        assert (left  > 0);
+
         elem_t temp  = data [left];
         data [left]  = data [right];
         data [right] = temp;
+
         if (prev [left]  > 0)
             next [ prev [ left ] ] = right;
         if (prev [right] > 0)
@@ -380,9 +374,12 @@ public:
             tail = right;
     }
 
-    bool resize ()
+    LIST_ERROR_CODE resize ()
     {
-        assert (size > 0);
+        if (sorted)
+            return OK;
+        if ( size == 0 )
+            return IS_EMPTY;
 
         long left  = 1;
         long right = total_size;
