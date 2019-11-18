@@ -104,6 +104,7 @@ public:
         data [head] = elem_val;
         next [head] = prev [head] = 0;
         size++;
+        sorted = true;
         return OK;
     }
 
@@ -131,7 +132,10 @@ public:
         if ( tail == elem_num )
             tail = next_free;
         else
+        {
             prev [ next [ elem_num ] ] = next_free;
+            sorted = false;
+        }
 
         next [elem_num] = next_free;
         next_free       = new_free;
@@ -173,8 +177,10 @@ public:
 
         if ( elem_num == head )
             head = next [ elem_num ];
-        if ( elem_num == tail )
+        else if ( elem_num == tail )
             tail = prev [ elem_num ];
+        else
+            sorted = false;
 
         data [elem_num] = $POISON;
         prev [elem_num] = $POISON;
@@ -278,6 +284,7 @@ public:
     {
         if ( sorted )
             return number;
+
         long elem_p = head;
         if (number > size || number == 0) return 0;
         if (number <= size / 2)
