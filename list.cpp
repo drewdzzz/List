@@ -158,7 +158,23 @@ public:
 
         assert (next_free);
 
-        InsertAfter (prev[elem_num], elem_val);
+        if ( elem_num != head )
+            InsertAfter (prev[elem_num], elem_val);
+        else
+        {
+                size++;
+
+            data [next_free] = elem_val;
+            long new_free    = next [next_free];
+            next [next_free] = elem_num;
+            prev [next_free] = prev [elem_num];
+
+                head = next_free;
+
+            prev [elem_num] = next_free;
+            next_free       = new_free;
+        }
+        
     }
 
     LIST_ERROR_CODE Delete ( long elem_num )
@@ -171,16 +187,22 @@ public:
 
         size--;
 
-        next [ prev [ elem_num ] ] = next [elem_num];
-        prev [ next [ elem_num ] ] = prev [elem_num];
-
+        sorted = false;
 
         if ( elem_num == head )
+        {
             head = next [ elem_num ];
-        else if ( elem_num == tail )
-            tail = prev [ elem_num ];
+            sorted = true;
+        }
         else
-            sorted = false;
+            next [ prev [ elem_num ] ] = next [elem_num];
+        if ( elem_num == tail )
+        {
+            tail = prev [ elem_num ];
+            sorted = true;
+        }
+        else
+            prev [ next [ elem_num ] ] = prev [elem_num];    
 
         data [elem_num] = $POISON;
         prev [elem_num] = $POISON;
@@ -330,6 +352,9 @@ public:
         for (long i = 1; i <= total_size; i++)
             fprintf (stream, " \"list_elem%ld\" ->", i);
         fprintf (stream, "end;");
+        fprintf (stream, " \"next_free = %ld \"", next_free);
+        fprintf (stream, " \"head = %ld \"", head);
+        fprintf (stream, " \"tail = %ld \"", tail);
         fprintf (stream, "\n}");
         fclose (stream);
         system  ("dot -Tpng list_dump.dot -o list_dump.png");
@@ -346,21 +371,46 @@ public:
     {
         sorted = false;
         assert (left  > 0);
-        assert (left  > 0);
 
         elem_t temp  = data [left];
         data [left]  = data [right];
         data [right] = temp;
 
-        if (prev [left]  > 0)
-            next [ prev [ left ] ] = right;
-        if (prev [right] > 0)
-            next [ prev [ right ] ] = left;
 
-        if (next [left] > 0 )
-            prev [ next [ left ] ] = right;
-        if (next [right] > 0)
-            prev [ next [right] ] = left;
+        if (next [left] == right && prev [right] == left)   
+        {
+            if (prev [left]  > 0)
+                next [ prev [ left ] ] = right;
+
+            if (next [right] > 0 && prev [right] >= 0)
+                prev [ next [right] ] = left;  
+
+            next [left] = left;
+            prev [right] = right;
+        }
+        else if (next [right] == left && prev [left] == right)
+        {
+            if (prev [right] > 0)
+                next [ prev [ right ] ] = left;
+
+            if (next [left] > 0 && prev [left]  >= 0)
+                prev [ next [ left ] ] = right;
+
+            next [right] = right;
+            prev [left] = left;
+        }
+        else
+        {    
+            if (prev [left]  > 0)
+                next [ prev [ left ] ] = right;
+            if (prev [right] > 0)
+                next [ prev [ right ] ] = left;
+
+            if (next [left] > 0 && prev [left]  >= 0)
+                prev [ next [ left ] ] = right;
+            if (next [right] > 0 && prev [right] >= 0)
+                prev [ next [right] ] = left;
+        }
 
         long t_pos  = next [left];
         next [left]  = next [right];
@@ -370,10 +420,16 @@ public:
         prev [left]  = prev [right];
         prev [right] = t_pos;
 
+
         if (head == right)
             head =  left;
         else if (head == left)
             head = right;
+
+        if (next_free == right)
+            next_free = left;
+        else if (next_free == left)
+            next_free = right;
 
         if (tail == right)
             tail =  left;
@@ -403,6 +459,11 @@ public:
         data = (elem_t*) realloc (data, (size + 2) * sizeof (elem_t) );
         next = (long*)   realloc (next, (size + 2) * sizeof (long)   );
         prev = (long*)   realloc (prev, (size + 2) * sizeof (long)   );
+        total_size = size + 1;
+        next_free = size + 1;
+        next [size + 1] = 0;
+        prev [size + 1] = $POISON;
+        data [size + 1] = $POISON;
     }
 };
 
@@ -411,7 +472,9 @@ int main ()
     List_t list;
     list.InsertFirst(1);
     for (int i = 1; i <= 15; i++)
-        list.InsertAfter(i, i+1);
+        list.InsertBefore(i, i+1);
+    list.draw_list((char*)"open");
+    $p
     list.Delete(4);
     list.Delete(8);
     list.Delete(13);
